@@ -110,3 +110,16 @@ journalctl -u insta-timetable-update.service -n 200 --no-pager
 - Foreground quick test: `./scripts/run_daemon.sh --run-now`
 - Start as a daemon with systemd: `sudo ./scripts/install_systemd.sh`
 - Logs: `journalctl -u insta-timetable-daemon.service -n 200 --no-pager`
+
+## GitHub 설정 체크리스트
+
+- 레포 권한/액션
+  - GitHub Actions가 기존 레거시 엔트리(`src/main_daily.py`, `src/main_update.py`)를 호출합니다. 신규 구조로 전환했다면 워크플로를 비활성화하거나 새 엔트리로 업데이트하세요.
+  - 예시(신규): 수동 실행 워크플로에서 `python -m src.daemon --run-now` 실행.
+- 시크릿(필요 시)
+  - `NEIS_KEY`: NEIS Open API 키
+  - 인스타 실게시 전환 시: `IG_PAGE_ACCESS_TOKEN`, `IG_BUSINESS_ID`, 그리고 `.env`의 `POST_TEST_MODE=false`
+- 브랜치 보호/권한
+  - `main` 브랜치 보호 규칙 설정, 필수 리뷰/체크 필요 시 구성
+- 이슈 템플릿/프로젝트 보드(선택)
+  - 유지보수/요청 사항 추적을 위한 Issue 템플릿 추가
