@@ -6,17 +6,14 @@ labels: ["todo"]
 assignees: ""
 ---
 
-## Goal
-간단히 목표/맥락을 적어주세요.
+## 우리의 목표:
+인스타그램에 24시간 365일 자동으로 3학년 11반의 시간표를 7시에 업로드 하는 자동화 프로그램을 라떼판다v1에서 실행하기
+## 할거:
+- [ ] 엔터프라이즈 인스타그램 계정 만들기
+- [ ] 기업용 인스타그램 계정 자동화 알아보기
+- [ ] api 가져와서 자동 업로드 기능 만들기
+- [ ] 
 
-## Tasks
-- [ ] README/Windows 문서 업데이트 필요 확인
-- [ ] NEIS 키/환경값 점검 (`.env` or GitHub Secrets)
-- [ ] 과목 치환 규칙 확인/추가 (`data/subject_aliases.json`)
-- [ ] 단발 실행 테스트: `python -m src.daemon --run-now`
-- [ ] 주간 생성 테스트: `python scripts/generate_week.py`
-- [ ] 로그 확인(`logs/insta_timetable.log`) 및 산출물(`out/*.jpg`) 검토
-
-## Notes
+## 노트:
 참고 사항이나 관련 링크를 여기에 남겨주세요.
 
