@@ -2,6 +2,10 @@
 
 이 문서는 Windows에서 바로 실행할 수 있도록 Git, Python venv, .env 설정, 실행/스케줄링 체크리스트를 정리합니다.
 
+> 중요: 레거시 코드 안내
+> 
+> `src_legacy/` 하위 스크립트는 보존용(레거시)으로 더 이상 사용하지 않습니다. 실제 실행은 `src/daemon.py`를 모듈로 실행하는 방식을 권장합니다.
+
 ## 필수 설치
 
 - Git for Windows: 최신 버전
@@ -58,31 +62,27 @@ copy .env.example .env
 # NEIS 연결 확인
 python src\check_neis.py
 
-# 3학년 반 목록
-python src\list_classes.py
+# 바로 한 번 실행(이미지 생성 + 업로드 테스트 모드)
+py -m src.daemon --run-now
+```
 
-# 오늘 이미지(NEIS)
-python src\local_demo_neis.py
-
-# 일일 테스트 플로우
-python src\main_daily.py
-
-# 변경 감지
-python src\main_update.py
-
-# 특정 날짜(예: 2025-09-12)
-set TARGET_DATE_YYYYMMDD=20250912 && python src\local_demo_neis.py
+### 레거시 데모(사용하지 않음)
+```powershell
+python src_legacy\local_demo_neis.py
+python src_legacy\local_demo.py
+python src_legacy\main_daily.py
+python src_legacy\main_update.py
 ```
 
 ## 산출물/미리보기
 
 - 이미지: `out\YYYYMMDD.jpg`
 - 상태: `state\posted.json`
-- 미리보기 서버: `python src\http_preview.py` → http://localhost:8080
+- 미리보기 서버(레거시): `python src_legacy\http_preview.py` → http://localhost:8080
 
 ## 스케줄링(작업 스케줄러, 선택)
 
-- 작업 디렉터리 보장을 위한 간단 .cmd 래퍼 포함됨
+- 작업 디렉터리 보장을 위한 간단 .cmd 래퍼 포함됨(현재 레거시 스크립트 경로를 가리키므로 사용 비권장)
   - `run_daily.cmd`
   - `run_update.cmd`
 
@@ -109,4 +109,3 @@ git add -A && git commit -m "메시지" && git push
   - `Set-ExecutionPolicy -Scope CurrentUser -ExecutionPolicy RemoteSigned`
 - 경로 구분: `\` 사용, `.ps1`는 PowerShell, `.cmd`는 CMD
 - 작업 디렉터리: 스케줄러에선 `.cmd` 내부 `cd /d`로 보장 권장
-

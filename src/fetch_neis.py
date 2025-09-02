@@ -1,4 +1,5 @@
 import os
+import json
 import time
 from typing import Dict, List, Optional
 import requests
@@ -72,6 +73,28 @@ def _normalize_subject(name: str) -> str:
         s = "2D"
     if low == "3d":
         s = "3D"
+    # Apply subject aliases (ENV inline JSON first, then file)
+    try:
+        inline = os.getenv("SUBJECT_ALIASES")
+        aliases: Dict[str, str] = {}
+        if inline:
+            try:
+                aliases = json.loads(inline)
+            except Exception:
+                aliases = {}
+        if not aliases:
+            path = os.getenv("SUBJECT_ALIASES_PATH", "data/subject_aliases.json")
+            if os.path.exists(path):
+                try:
+                    with open(path, "r", encoding="utf-8") as f:
+                        aliases = json.load(f)
+                except Exception:
+                    aliases = {}
+        repl = aliases.get(s)
+        if isinstance(repl, str) and repl.strip():
+            return repl.strip()
+    except Exception:
+        pass
     return s
 
 
@@ -161,4 +184,3 @@ def get_timetable(
             }
         )
     return result
-
