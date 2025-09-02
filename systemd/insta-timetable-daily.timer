@@ -1,0 +1,10 @@
+[Unit]
+Description=Run timetable daily at 07:00 JST
+
+[Timer]
+OnCalendar=*-*-* 07:00:00
+Persistent=true
+Unit=insta-timetable-daily.service
+
+[Install]
+WantedBy=timers.target

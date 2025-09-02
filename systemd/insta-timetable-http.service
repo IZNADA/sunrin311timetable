@@ -1,0 +1,11 @@
+[Unit]
+Description=Serve timetable images over HTTP
+After=network.target
+
+[Service]
+WorkingDirectory=/opt/insta-timetable
+ExecStart=/opt/insta-timetable/venv/bin/python src/http_preview.py
+Restart=always
+
+[Install]
+WantedBy=multi-user.target

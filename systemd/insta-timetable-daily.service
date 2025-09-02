@@ -1,0 +1,15 @@
+[Unit]
+Description=Daily timetable post (NEIS -> Image -> (Test) Upload)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+WorkingDirectory=/opt/insta-timetable
+EnvironmentFile=/opt/insta-timetable/.env
+ExecStart=/opt/insta-timetable/venv/bin/python src/main_daily.py
+User=root
+Group=root
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,35 @@
+name: Timetable Automation
+on:
+  schedule:
+    - cron: "0 22 * * *"          # UTC 22:00 = JST 07:00
+    - cron: "*/30 21-23,0-2 * * *" # 등교 전후 30분 주기 업데이트 체크(UTC 기준)
+  workflow_dispatch:
+
+jobs:
+  daily:
+    runs-on: ubuntu-latest
+    env:
+      TZ: Asia/Tokyo
+      POST_TEST_MODE: "true"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: pip install -r requirements.txt
+      - name: Daily Post
+        run: python src/main_daily.py
+
+  update:
+    runs-on: ubuntu-latest
+    env:
+      TZ: Asia/Tokyo
+      POST_TEST_MODE: "true"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: pip install -r requirements.txt
+      - name: Update Check
+        run: python src/main_update.py
