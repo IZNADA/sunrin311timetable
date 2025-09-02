@@ -1,23 +1,24 @@
+"""
+Image rendering functionality for timetable data.
+"""
+
 from PIL import Image, ImageDraw, ImageFont
 import os
-from .config import get_logger
-
-log = get_logger(__name__)
 
 
 def _try_truetype(path, size):
     try:
         if path and os.path.exists(path):
             return ImageFont.truetype(path, size)
-    except Exception as e:
-        log.debug("Font load failed for %s: %s", path, e)
+    except Exception:
+        pass
     return None
 
 
 def _pick_font(size, kind="regular"):
     """Pick a font with this priority:
     1) Env override (FONT_BOLD_PATH / FONT_REGULAR_PATH)
-    2) Wanted Sans in assets (WantedSans-*.ttf/.otf)
+    2) Wanted Sans in assets (WantedSans-*.ttf or .otf)
     3) NotoSansKR in assets
     4) Default PIL font
     """
@@ -68,10 +69,11 @@ def render_timetable_image(
 
     bold_font = _pick_font(72, kind="bold")
     reg_font = _pick_font(44, kind="regular")
+    small_f = _pick_font(36, kind="regular")
 
     d.rectangle((0, 0, W, 220), fill=brand_color)
 
-    # Title first line: e.g., "3학년 11반 시간표"
+    # Title first line: "3학년 11반 시간표"
     if grade is not None and class_nm is not None:
         title_line = f"{grade}학년 {class_nm}반 시간표"
     else:
@@ -94,8 +96,8 @@ def render_timetable_image(
         d.line((side, y, W - side, y), fill="#eaeaea", width=3)
         y += 20
 
+    # Footer removed per request
+
     os.makedirs(os.path.dirname(out_path) or ".", exist_ok=True)
     img.save(out_path, quality=95)
-    log.info("Saved image: %s", out_path)
     return out_path
-

@@ -97,3 +97,10 @@ journalctl -u insta-timetable-update.service -n 200 --no-pager
 4. 이미지 공개 URL 업로더 연결 후 `image_url` 변수 채움
 5. systemd 재시작
 
+
+## Daemon (APScheduler, Asia/Seoul)
+
+- Timezone is fixed to Asia/Seoul in code.
+- Foreground quick test: `./scripts/run_daemon.sh --run-now`
+- Start as a daemon with systemd: `sudo ./scripts/install_systemd.sh`
+- Logs: `journalctl -u insta-timetable-daemon.service -n 200 --no-pager`
