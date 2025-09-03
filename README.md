@@ -100,7 +100,9 @@ journalctl -u insta-timetable-update.service -n 200 --no-pager
 1. IG 비즈/크리에이터 전환 + 페북 페이지 연결
 2. `.env`에 `IG_PAGE_ACCESS_TOKEN`, `IG_BUSINESS_ID` 설정
 3. `POST_TEST_MODE=false`로 전환
-4. 이미지 공개 URL 업로더 연결 후 `image_url` 변수 채움
+4. 이미지 공개 URL 설정 중 하나 선택
+   - 템플릿: `IMAGE_URL_TEMPLATE=https://cdn.example.com/timetable/{basename}`
+   - 간편 업로더(테스트/소규모): `UPLOAD_PROVIDER=transfersh`
 5. systemd 재시작
 
 

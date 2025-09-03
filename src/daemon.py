@@ -10,6 +10,7 @@ from .fetch_neis import find_school_codes, get_timetable
 from .render_image import render_timetable_image
 from .detect_change import calc_hash, record_post, last_hash
 from .post_instagram import upload_image_via_url
+from .uploader import get_public_image_url
 
 log = get_logger(__name__)
 
@@ -69,7 +70,6 @@ def daily_job():
             class_nm=class_nm,
         )
 
-        image_url = "https://example.com/placeholder.jpg"  # TEST mode: use external URL
         caption = build_caption(date_str, tt, school_name, grade, class_nm)
 
         previous_h = last_hash(ymd)
@@ -77,6 +77,12 @@ def daily_job():
         if previous_h and previous_h == current_h:
             log.info("No change detected for %s. Skipping post.", ymd)
             return
+
+        try:
+            image_url = get_public_image_url(img_path)
+        except Exception as e:
+            log.warning("Image URL unavailable: %s", e)
+            image_url = "https://example.com/placeholder.jpg"
 
         post_id = upload_image_via_url(image_url, caption)
         record_post(ymd, str(post_id), current_h)
@@ -113,4 +119,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-
