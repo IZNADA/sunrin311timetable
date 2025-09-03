@@ -4,7 +4,7 @@
 
 > 중요: 레거시 코드 안내
 > 
-> `src_legacy/` 하위 스크립트는 보존용(레거시)으로 더 이상 사용하지 않습니다. 실제 실행은 `src/daemon.py`를 모듈로 실행하는 방식을 권장합니다.
+레거시(`src_legacy/`)는 제거되었습니다. 실행은 `src/daemon.py` 기준입니다.
 
 ## 필수 설치
 
@@ -62,29 +62,21 @@ copy .env.example .env
 # NEIS 연결 확인
 python src\check_neis.py
 
-# 바로 한 번 실행(이미지 생성 + 업로드 테스트 모드)
+# 바로 한 번 실행(이미지 생성 + 업로드)
 py -m src.daemon --run-now
-```
-
-### 레거시 데모(사용하지 않음)
-```powershell
-python src_legacy\local_demo_neis.py
-python src_legacy\local_demo.py
-python src_legacy\main_daily.py
-python src_legacy\main_update.py
 ```
 
 ## 산출물/미리보기
 
 - 이미지: `out\YYYYMMDD.jpg`
 - 상태: `state\posted.json`
-- 미리보기 서버(레거시): `python src_legacy\http_preview.py` → http://localhost:8080
+- (선택) 미리보기 서버는 별도 제공하지 않습니다.
 
 ## 스케줄링(작업 스케줄러, 선택)
 
-- 작업 디렉터리 보장을 위한 간단 .cmd 래퍼 포함됨(현재 레거시 스크립트 경로를 가리키므로 사용 비권장)
-  - `run_daily.cmd`
-  - `run_update.cmd`
+- 작업 디렉터리 보장을 위한 간단 .cmd 래퍼 포함됨
+  - `run_daily.cmd` (daemon --run-now 호출)
+  - `run_update.cmd` (동일 실행)
 
 - 작업 등록 예시
 ```cmd

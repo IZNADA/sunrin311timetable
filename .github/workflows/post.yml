@@ -1,35 +1,44 @@
-name: Timetable Automation
+name: Insta Timetable
 on:
   schedule:
-    - cron: "0 22 * * *"          # UTC 22:00 = JST 07:00
-    - cron: "*/30 21-23,0-2 * * *" # 등교 전후 30분 주기 업데이트 체크(UTC 기준)
+    - cron: "0 22 * * *"  # UTC 22:00 = KST 07:00
   workflow_dispatch:
 
 jobs:
   daily:
     runs-on: ubuntu-latest
     env:
-      TZ: Asia/Tokyo
-      POST_TEST_MODE: "true"
+      TZ: Asia/Seoul
+      POST_TEST_MODE: "false"
+      # 이미지 공개 URL: 운영은 CDN 템플릿 권장, 테스트는 catbox 사용 가능
+      # IMAGE_URL_TEMPLATE: https://cdn.example.com/timetable/{basename}
+      UPLOAD_PROVIDER: catbox
+      NEIS_KEY: ${{ secrets.NEIS_KEY || vars.NEIS_KEY }}
+      IG_PAGE_ACCESS_TOKEN: ${{ secrets.IG_PAGE_ACCESS_TOKEN }}
+      IG_BUSINESS_ID: ${{ secrets.IG_BUSINESS_ID }}
+      FB_APP_SECRET: ${{ secrets.FB_APP_SECRET }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
           python-version: "3.11"
-      - run: pip install -r requirements.txt
-      - name: Daily Post
-        run: python src/main_daily.py
-
-  update:
-    runs-on: ubuntu-latest
-    env:
-      TZ: Asia/Tokyo
-      POST_TEST_MODE: "true"
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - name: Install deps
+        run: pip install -r requirements.txt
+      - name: Preflight env
+        run: |
+          python - << 'PY'
+          import os, sys
+          need = ['NEIS_KEY','IG_PAGE_ACCESS_TOKEN','IG_BUSINESS_ID']
+          miss=[k for k in need if not os.getenv(k)]
+          assert not miss, f"Missing env: {miss}"
+          print('Preflight OK')
+          PY
+      - name: Run once (generate + post)
+        run: python -m src.daemon --run-now
+      - name: Upload image artifact
+        if: always()
+        uses: actions/upload-artifact@v4
         with:
-          python-version: "3.11"
-      - run: pip install -r requirements.txt
-      - name: Update Check
-        run: python src/main_update.py
+          name: timetable-image
+          path: out/*.jpg
+          if-no-files-found: warn

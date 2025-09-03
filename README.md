@@ -2,9 +2,7 @@
 
 선린 25학년도 3-11 학급의 시간표를 매일 7시마다 인스타그램에 자동 업로드하는 프로젝트.
 
-> 중요: 레거시 코드 안내
-> 
-> `src_legacy/` 폴더의 스크립트는 보존용(레거시)이며 더 이상 사용하지 않습니다. 실행과 운영은 신규 구조(`src/`, `scripts/`, `systemd/`) 기준으로 진행하세요. 아래 문서의 데모 예시 중 레거시 스크립트가 포함되었던 항목은 참고용으로만 남겨두었습니다.
+※ 레거시(`src_legacy/`)는 제거되었습니다. 실행은 `src/daemon.py` 기준입니다.
 
 ## 목적
 NEIS(나이스) Open API로 ‘선린인터넷고등학교 3학년 11반’의 해당 날짜 시간표를 조회하여 인스타그램 규격(1080x1350) 이미지로 생성하고, (테스트 모드) 업로드 및 변경 감지(정정 게시)를 준비합니다.
@@ -44,7 +42,7 @@ cp .env.example .env
 # NEIS 연결 확인
 python src/check_neis.py
 
-# 바로 한 번 실행(이미지 생성 + 업로드 테스트 모드)
+# 바로 한 번 실행(이미지 생성 + 업로드)
 python -m src.daemon --run-now
 
 # 데몬 포그라운드 실행(스케줄러 07:00 Asia/Seoul)
@@ -55,21 +53,8 @@ python -m src.daemon --run-now
 - 1줄째: `3학년 11반 시간표`
 - 2줄째: `YYYY-MM-DD (한글 요일)`
 
-## 레거시 데모(사용하지 않음)
-- 아래 스크립트는 `src_legacy/`로 보관만 하며 현재 운영 경로에서 사용하지 않습니다.
-- 필요 시 참고용으로만 확인하세요.
-
-```bash
-# (레거시) 오늘 시간표 이미지 생성(NEIS)
-python src_legacy/local_demo_neis.py
-
-# (레거시) CSV 데모
-python src_legacy/local_demo.py
-
-# (레거시) 매일 게시/변경 감지
-python src_legacy/main_daily.py
-python src_legacy/main_update.py
-```
+## 데모/기타
+- 오늘자 이미지 생성은 상단 실행 예시로 대신합니다.
 
 ## Arch 배포/운영 (systemd)
 

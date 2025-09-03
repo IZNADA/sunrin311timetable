@@ -7,7 +7,7 @@ Wants=network-online.target
 Type=oneshot
 WorkingDirectory=/opt/insta-timetable
 EnvironmentFile=/opt/insta-timetable/.env
-ExecStart=/opt/insta-timetable/venv/bin/python src/main_update.py
+ExecStart=/opt/insta-timetable/scripts/run_daemon.sh --run-now
 User=root
 Group=root
 
