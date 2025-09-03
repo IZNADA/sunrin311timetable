@@ -51,8 +51,27 @@ def get_public_image_url(img_path: str) -> str:
     provider = os.getenv("UPLOAD_PROVIDER", "").strip().lower()
     if provider == "transfersh":
         return _upload_transfer_sh(img_path)
+    if provider in ("catbox", "catbox.moe"):
+        # Public host that returns a direct URL
+        with open(img_path, "rb") as f:
+            files = {"fileToUpload": (pathlib.Path(img_path).name, f, "image/jpeg")}
+            data = {"reqtype": "fileupload"}
+            r = requests.post("https://catbox.moe/user/api.php", data=data, files=files, timeout=60)
+            r.raise_for_status()
+            url = r.text.strip()
+            log.info("Uploaded image to catbox: %s", url)
+            return url
 
-    raise RuntimeError(
-        "No public image URL provider configured. Set IMAGE_URL_TEMPLATE or UPLOAD_PROVIDER=transfersh"
-    )
-
+    # Auto fallback: try transfer.sh then catbox
+    try:
+        return _upload_transfer_sh(img_path)
+    except Exception as e:
+        log.warning("transfer.sh failed: %s; falling back to catbox", e)
+        with open(img_path, "rb") as f:
+            files = {"fileToUpload": (pathlib.Path(img_path).name, f, "image/jpeg")}
+            data = {"reqtype": "fileupload"}
+            r = requests.post("https://catbox.moe/user/api.php", data=data, files=files, timeout=60)
+            r.raise_for_status()
+            url = r.text.strip()
+            log.info("Uploaded image to catbox: %s", url)
+            return url
