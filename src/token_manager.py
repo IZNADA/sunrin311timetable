@@ -9,7 +9,7 @@ from .config import get_logger
 
 log = get_logger(__name__)
 
-GRAPH = "https://graph.facebook.com/v21.0"
+GRAPH = "https://graph.facebook.com/v23.0"
 STATE_DIR = os.getenv("STATE_DIR", "state")
 TOKEN_STATE_PATH = os.path.join(STATE_DIR, "token.json")
 
