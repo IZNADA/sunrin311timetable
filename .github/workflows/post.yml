@@ -14,9 +14,15 @@ jobs:
       # IMAGE_URL_TEMPLATE: https://cdn.example.com/timetable/{basename}
       UPLOAD_PROVIDER: catbox
       NEIS_KEY: ${{ secrets.NEIS_KEY || vars.NEIS_KEY }}
+      # Fixed mode (if provided)
       IG_PAGE_ACCESS_TOKEN: ${{ secrets.IG_PAGE_ACCESS_TOKEN }}
       IG_BUSINESS_ID: ${{ secrets.IG_BUSINESS_ID }}
+      # Auto mode (optional)
+      IG_USER_ACCESS_TOKEN: ${{ secrets.IG_USER_ACCESS_TOKEN }}
+      PAGE_ID: ${{ secrets.PAGE_ID }}
+      FB_APP_ID: ${{ secrets.FB_APP_ID }}
       FB_APP_SECRET: ${{ secrets.FB_APP_SECRET }}
+      TOKEN_REFRESH_THRESHOLD_DAYS: 7
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -28,13 +34,32 @@ jobs:
         run: |
           python - << 'PY'
           import os, sys
-          need = ['NEIS_KEY','IG_PAGE_ACCESS_TOKEN','IG_BUSINESS_ID']
-          miss=[k for k in need if not os.getenv(k)]
-          assert not miss, f"Missing env: {miss}"
+          has_fixed = all(bool(os.getenv(k)) for k in ['IG_PAGE_ACCESS_TOKEN','IG_BUSINESS_ID'])
+          has_auto  = all(bool(os.getenv(k)) for k in ['IG_USER_ACCESS_TOKEN','PAGE_ID'])
+          if not bool(os.getenv('NEIS_KEY')):
+              print('Missing NEIS_KEY')
+              sys.exit(1)
+          if not (has_fixed or has_auto):
+              print('Provide fixed creds (IG_PAGE_ACCESS_TOKEN, IG_BUSINESS_ID) or auto creds (IG_USER_ACCESS_TOKEN, PAGE_ID).')
+              sys.exit(1)
           print('Preflight OK')
           PY
+      - name: Restore state cache (token/hash)
+        uses: actions/cache/restore@v4
+        with:
+          path: state
+          key: state-${{ github.ref_name }}-${{ github.run_id }}
+          restore-keys: |
+            state-${{ github.ref_name }}-
+            state-
       - name: Run once (generate + post)
         run: python -m src.daemon --run-now
+      - name: Save state cache
+        if: always()
+        uses: actions/cache/save@v4
+        with:
+          path: state
+          key: state-${{ github.ref_name }}-${{ github.run_id }}
       - name: Upload image artifact
         if: always()
         uses: actions/upload-artifact@v4
