@@ -91,6 +91,20 @@ def _get_ig_user_id(user_token: str, page_id: str) -> str:
     return ((r.json() or {}).get("instagram_business_account") or {}).get("id", "")
 
 
+def _get_ig_user_id_via_page_token(page_token: str, page_id: str) -> str:
+    """Resolve IG Business User ID using a page token + PAGE_ID.
+
+    This is useful when users provide only IG_PAGE_ACCESS_TOKEN + PAGE_ID
+    (without IG_BUSINESS_ID)."""
+    r = requests.get(
+        f"{GRAPH}/{page_id}",
+        params={"fields": "instagram_business_account{id}", "access_token": page_token},
+        timeout=30,
+    )
+    r.raise_for_status()
+    return ((r.json() or {}).get("instagram_business_account") or {}).get("id", "")
+
+
 def get_creds() -> Tuple[str, str]:
     """Return (access_token, ig_user_id) for posting.
 
@@ -98,16 +112,22 @@ def get_creds() -> Tuple[str, str]:
     - Fixed: IG_PAGE_ACCESS_TOKEN + IG_BUSINESS_ID
     - Derived (auto): IG_USER_ACCESS_TOKEN + PAGE_ID [+ FB_APP_ID/FB_APP_SECRET for refresh]
     """
-    # Fixed token mode
+    # Fixed token mode (with optional IG id derivation from PAGE_ID)
     fixed_token = _get("IG_PAGE_ACCESS_TOKEN")
     fixed_ig = _get("IG_BUSINESS_ID")
-    if fixed_token and fixed_ig:
-        return fixed_token, fixed_ig
+    page_id = _get("PAGE_ID")
+    if fixed_token:
+        if fixed_ig:
+            return fixed_token, fixed_ig
+        if page_id:
+            ig_user = _get_ig_user_id_via_page_token(fixed_token, page_id)
+            if not ig_user:
+                raise RuntimeError("Failed to resolve IG user id from PAGE_ID with provided page token")
+            return fixed_token, ig_user
 
     # Auto-derive mode
     st = _load_state()
     user_token = st.get("user_token") or _get("IG_USER_ACCESS_TOKEN")
-    page_id = _get("PAGE_ID")
     if not (user_token and page_id):
         raise RuntimeError("Missing creds: provide IG_PAGE_ACCESS_TOKEN+IG_BUSINESS_ID, or IG_USER_ACCESS_TOKEN+PAGE_ID")
 
@@ -135,4 +155,3 @@ def get_creds() -> Tuple[str, str]:
     if not (page_token and ig_user):
         raise RuntimeError("Failed to derive page token or IG user id. Check PAGE_ID linkage and token scopes.")
     return page_token, ig_user
-

@@ -34,13 +34,17 @@ jobs:
         run: |
           python - << 'PY'
           import os, sys
-          has_fixed = all(bool(os.getenv(k)) for k in ['IG_PAGE_ACCESS_TOKEN','IG_BUSINESS_ID'])
+          has_fixed_full = all(bool(os.getenv(k)) for k in ['IG_PAGE_ACCESS_TOKEN','IG_BUSINESS_ID'])
+          has_fixed_partial = all(bool(os.getenv(k)) for k in ['IG_PAGE_ACCESS_TOKEN','PAGE_ID'])
           has_auto  = all(bool(os.getenv(k)) for k in ['IG_USER_ACCESS_TOKEN','PAGE_ID'])
           if not bool(os.getenv('NEIS_KEY')):
               print('Missing NEIS_KEY')
               sys.exit(1)
-          if not (has_fixed or has_auto):
-              print('Provide fixed creds (IG_PAGE_ACCESS_TOKEN, IG_BUSINESS_ID) or auto creds (IG_USER_ACCESS_TOKEN, PAGE_ID).')
+          if not (has_fixed_full or has_fixed_partial or has_auto):
+              print('Provide one of:')
+              print('- Fixed: IG_PAGE_ACCESS_TOKEN + IG_BUSINESS_ID')
+              print('- Fixed (derive IG id): IG_PAGE_ACCESS_TOKEN + PAGE_ID')
+              print('- Auto: IG_USER_ACCESS_TOKEN + PAGE_ID (+ FB_APP_ID/FB_APP_SECRET)')
               sys.exit(1)
           print('Preflight OK')
           PY
