@@ -2,9 +2,9 @@ name: Update Timetable (07:00–12:00 KST every 30m)
 
 on:
   schedule:
-    # KST 07:00–12:00 == UTC 22:00–03:30
-    - cron: '0,30 22-23 * * *'
-    - cron: '0,30 0-3 * * *'
+    # KST 07:00–12:00 (Mon–Fri) == UTC 22:00–03:30 (previous day to same day)
+    - cron: '0,30 22-23 * * MON-FRI'
+    - cron: '0,30 0-3 * * MON-FRI'
   workflow_dispatch:
     inputs:
       test_mode:
@@ -139,4 +139,3 @@ jobs:
           name: timetable-image
           path: out/*.jpg
           if-no-files-found: warn
-
