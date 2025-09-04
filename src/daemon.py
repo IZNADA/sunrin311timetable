@@ -33,8 +33,6 @@ def build_caption(date_str, tt, school_name, grade, class_nm):
         for i, row in enumerate(tt, start=1):
             subj = (row.get('subject', '-') or '-').strip()
             lines.append(f"{i}교시  {subj}")
-    lines.append("\n※ 자동 업로드 테스트 모드입니다.")
-    lines.append("#학교계정 #시간표")
     return "\n".join(lines)
 
 
