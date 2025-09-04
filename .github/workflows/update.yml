@@ -1,0 +1,142 @@
+name: Update Timetable (07:00–12:00 KST every 30m)
+
+on:
+  schedule:
+    # KST 07:00–12:00 == UTC 22:00–03:30
+    - cron: '0,30 22-23 * * *'
+    - cron: '0,30 0-3 * * *'
+  workflow_dispatch:
+    inputs:
+      test_mode:
+        description: 'Run in test mode (no real Instagram post)'
+        required: true
+        default: 'true'
+        type: choice
+        options: ['true', 'false']
+
+permissions:
+  contents: read
+
+concurrency:
+  group: update-timetable-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Cache pip
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/pip
+          key: ${{ runner.os }}-pip-${{ hashFiles('**/requirements.txt') }}
+          restore-keys: |
+            ${{ runner.os }}-pip-
+
+      - name: Install deps
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Preflight env
+        run: |
+          python - << 'PY'
+          import os, sys
+          has_fixed_full = all(bool(os.getenv(k)) for k in ['IG_PAGE_ACCESS_TOKEN','IG_BUSINESS_ID'])
+          has_fixed_partial = all(bool(os.getenv(k)) for k in ['IG_PAGE_ACCESS_TOKEN','PAGE_ID'])
+          has_auto  = all(bool(os.getenv(k)) for k in ['IG_USER_ACCESS_TOKEN','PAGE_ID'])
+          if not bool(os.getenv('NEIS_KEY')):
+              print('Missing NEIS_KEY')
+              sys.exit(1)
+          if not (has_fixed_full or has_fixed_partial or has_auto):
+              print('Provide one of:')
+              print('- Fixed: IG_PAGE_ACCESS_TOKEN + IG_BUSINESS_ID')
+              print('- Fixed (derive IG id): IG_PAGE_ACCESS_TOKEN + PAGE_ID')
+              print('- Auto: IG_USER_ACCESS_TOKEN + PAGE_ID (+ FB_APP_ID/FB_APP_SECRET)')
+              sys.exit(1)
+          print('Preflight OK')
+          PY
+        env:
+          NEIS_KEY: ${{ secrets.NEIS_KEY || vars.NEIS_KEY }}
+          IG_PAGE_ACCESS_TOKEN: ${{ secrets.IG_PAGE_ACCESS_TOKEN }}
+          IG_BUSINESS_ID: ${{ secrets.IG_BUSINESS_ID }}
+          IG_USER_ACCESS_TOKEN: ${{ secrets.IG_USER_ACCESS_TOKEN }}
+          PAGE_ID: ${{ secrets.PAGE_ID }}
+          FB_APP_ID: ${{ secrets.FB_APP_ID }}
+          FB_APP_SECRET: ${{ secrets.FB_APP_SECRET }}
+
+      - name: Restore state cache (token/hash)
+        id: state_cache
+        uses: actions/cache/restore@v4
+        with:
+          path: state
+          key: state-${{ github.ref_name }}-${{ github.run_id }}-${{ github.run_attempt }}
+          restore-keys: |
+            state-${{ github.ref_name }}-
+            state-
+
+      - name: Run update job (render + upload/test)
+        env:
+          # Required
+          NEIS_KEY: ${{ secrets.NEIS_KEY }}
+          # Instagram
+          IG_PAGE_ACCESS_TOKEN: ${{ secrets.IG_PAGE_ACCESS_TOKEN }}
+          IG_BUSINESS_ID: ${{ secrets.IG_BUSINESS_ID }}
+          IG_USER_ACCESS_TOKEN: ${{ secrets.IG_USER_ACCESS_TOKEN }}
+          PAGE_ID: ${{ secrets.PAGE_ID }}
+          FB_APP_ID: ${{ secrets.FB_APP_ID }}
+          FB_APP_SECRET: ${{ secrets.FB_APP_SECRET }}
+
+          # App config (safe defaults; override with repo Variables)
+          TIMEZONE: Asia/Seoul
+          SCHOOL_NAME: ${{ vars.SCHOOL_NAME || '선린인터넷고등학교' }}
+          SCHOOL_LEVEL: ${{ vars.SCHOOL_LEVEL || 'his' }}
+          GRADE: ${{ vars.GRADE || '3' }}
+          CLASS_NM: ${{ vars.CLASS_NM || '11' }}
+          BRAND_COLOR_HEX: ${{ vars.BRAND_COLOR_HEX || '#2A6CF0' }}
+
+          # Posting mode: default true unless manually overridden
+          POST_TEST_MODE: ${{ inputs.test_mode || 'true' }}
+
+          # Placement tuning (optional)
+          DATE_ANCHOR_XY: ${{ vars.DATE_ANCHOR_XY }}
+          DATE_ANCHOR_MODE: ${{ vars.DATE_ANCHOR_MODE }}
+          DATE_ALIGN: ${{ vars.DATE_ALIGN }}
+          DATE_ALIGN_X1: ${{ vars.DATE_ALIGN_X1 }}
+
+          SUBJECT_ANCHOR_XY: ${{ vars.SUBJECT_ANCHOR_XY }}
+          SUBJECT_ANCHOR_MODE: ${{ vars.SUBJECT_ANCHOR_MODE }}
+          SUBJECT_ROW_DY: ${{ vars.SUBJECT_ROW_DY }}
+          SUBJECT_ALIGN: ${{ vars.SUBJECT_ALIGN }}
+          SUBJECT_ALIGN_X1: ${{ vars.SUBJECT_ALIGN_X1 }}
+          SUBJECT_ANCHOR_AFTER_LUNCH_XY: ${{ vars.SUBJECT_ANCHOR_AFTER_LUNCH_XY }}
+          SUBJECT_ANCHOR_AFTER_LUNCH_XY_7TIME: ${{ vars.SUBJECT_ANCHOR_AFTER_LUNCH_XY_7TIME }}
+          SUBJECT_ROW_DY_AFTER_LUNCH: ${{ vars.SUBJECT_ROW_DY_AFTER_LUNCH }}
+
+        run: |
+          python -m src.daemon --run-now
+
+      - name: Save state cache
+        if: always() && steps.state_cache.outputs.cache-hit != 'true'
+        continue-on-error: true
+        uses: actions/cache/save@v4
+        with:
+          path: state
+          key: state-${{ github.ref_name }}-${{ github.run_id }}-${{ github.run_attempt }}
+
+      - name: Upload image artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: timetable-image
+          path: out/*.jpg
+          if-no-files-found: warn
+
