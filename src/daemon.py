@@ -21,8 +21,8 @@ def now_kr() -> dt.datetime:
 
 def format_date_kr(d: dt.datetime) -> str:
     weekdays = "월화수목금토일"
-    # e.g., 2025-09-04 목요일
-    return f"{d.strftime('%Y-%m-%d')} {weekdays[d.weekday()]}요일"
+    # e.g., 2025년09월04일 목요일
+    return f"{d.strftime('%Y년%m월%d일')} {weekdays[d.weekday()]}요일"
 
 
 def build_caption(date_str, tt, school_name, grade, class_nm):

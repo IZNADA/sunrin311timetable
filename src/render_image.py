@@ -109,6 +109,17 @@ def _env_int(key: str, default: int) -> int:
         return default
 
 
+def _env_xy(key: str):
+    s = os.getenv(key)
+    if s:
+        try:
+            x, y = map(int, s.split(","))
+            return (x, y)
+        except Exception:
+            return None
+    return None
+
+
 def render_timetable_image(
     date_str,
     timetable,
@@ -131,20 +142,89 @@ def render_timetable_image(
 
     # Fonts
     title_font = _pick_font(64, kind="bold")
-    date_font = _pick_font(40, kind="bold")
+    date_font = _pick_font(32, kind="bold")
     label_font = _pick_font(60, kind="bold")
-    subj_font = _pick_font(56, kind="regular")
+    subj_font = _pick_font(48, kind="bold")
 
-    # Header text: show only date on the right ribbon.
-    # Defaults tuned for 1080x1350 template; can be overridden via env:
-    #  - DATE_BOX_6TIME / DATE_BOX_7TIME = "x0,y0,x1,y1"
-    default_date_box = (640, 88, 1015, 188)
-    date_box = default_date_box
-    if "7time" in tpl_name:
-        date_box = _env_box("DATE_BOX_7TIME", default_date_box)
+    # Header text: date placement
+    # Options (env overrides):
+    #  - DATE_BOX_6TIME / DATE_BOX_7TIME = "x0,y0,x1,y1" (legacy box-centering)
+    #  - DATE_BOX_OFFSET_Y[_6TIME|_7TIME] = int (nudge Y)
+    #  - DATE_CENTER_Y[_6TIME|_7TIME] = int (force vertical center in the box)
+    #  - DATE_ANCHOR_XY[_6TIME|_7TIME] = "x,y" (absolute anchor point)
+    #  - DATE_ANCHOR_MODE[_6TIME|_7TIME] = topleft|center|center_top (default: topleft)
+    # Slightly lowered default box to better match left title area when box mode is used.
+    default_date_box = (640, 110, 1015, 210)
+
+    # Resolve per-template envs
+    is7 = "7time" in tpl_name
+    date_box = _env_box("DATE_BOX_7TIME" if is7 else "DATE_BOX_6TIME", default_date_box)
+    offset_y = int(os.getenv("DATE_BOX_OFFSET_Y_7TIME" if is7 else "DATE_BOX_OFFSET_Y_6TIME", os.getenv("DATE_BOX_OFFSET_Y", "0") or 0))
+    center_y_env = os.getenv("DATE_CENTER_Y_7TIME" if is7 else "DATE_CENTER_Y_6TIME", os.getenv("DATE_CENTER_Y"))
+
+    # Anchor controls
+    anchor_xy_env = os.getenv("DATE_ANCHOR_XY_7TIME" if is7 else "DATE_ANCHOR_XY_6TIME", os.getenv("DATE_ANCHOR_XY"))
+    anchor_mode = os.getenv("DATE_ANCHOR_MODE_7TIME" if is7 else "DATE_ANCHOR_MODE_6TIME", os.getenv("DATE_ANCHOR_MODE", "topleft")).lower()
+
+    if anchor_xy_env:
+        # Absolute-anchored drawing
+        try:
+            ax, ay = map(int, anchor_xy_env.split(","))
+            bbox = d.textbbox((0, 0), str(date_str), font=date_font)
+            tw = bbox[2] - bbox[0]
+            th = bbox[3] - bbox[1]
+            if anchor_mode in ("center", "center_center"):
+                px, py = ax - tw // 2, ay - th // 2
+            elif anchor_mode in ("center_top", "topcenter", "top_center"):
+                px, py = ax - tw // 2, ay
+            elif anchor_mode in ("left_center", "center_left"):
+                px, py = ax, ay - th // 2
+            else:  # topleft
+                px, py = ax, ay
+            # Optional horizontal align within width (when using top-based modes)
+            date_align = (os.getenv("DATE_ALIGN", "left") or "left").lower()
+            if date_align != "left":
+                align_w = _env_int("DATE_ALIGN_W_7TIME" if is7 else "DATE_ALIGN_W_6TIME", _env_int("DATE_ALIGN_W", 0))
+                align_x1 = _env_int("DATE_ALIGN_X1_7TIME" if is7 else "DATE_ALIGN_X1_6TIME", _env_int("DATE_ALIGN_X1", 0))
+                width = align_w if align_w > 0 else (align_x1 - ax if align_x1 > 0 else None)
+                if width and width > 0:
+                    if date_align == "center":
+                        px = ax + (width - tw) // 2
+                    elif date_align == "right":
+                        px = ax + (width - tw)
+            d.text((px, py), str(date_str), fill="black", font=date_font)
+            # Optional debug marker
+            if (os.getenv("RENDER_DEBUG_BOXES", "false").lower() == "true"):
+                d.rectangle((px, py, px + tw, py + th), outline="#ff00ff", width=2)
+        except Exception:
+            # Fallback to box-based centering if parsing fails
+            x0, y0, x1, y1 = date_box
+            if center_y_env not in (None, ""):
+                try:
+                    cy = int(center_y_env)
+                    half = (y1 - y0) // 2
+                    y0, y1 = cy - half, cy + half
+                except Exception:
+                    pass
+            if offset_y:
+                y0 += offset_y
+                y1 += offset_y
+            _draw_centered_text(d, (x0, y0, x1, y1), str(date_str), date_font, fill="black")
     else:
-        date_box = _env_box("DATE_BOX_6TIME", default_date_box)
-    _draw_centered_text(d, date_box, str(date_str), date_font, fill="black")
+        # Box-based centering path
+        x0, y0, x1, y1 = date_box
+        if center_y_env not in (None, ""):
+            try:
+                cy = int(center_y_env)
+                half = (y1 - y0) // 2
+                y0, y1 = cy - half, cy + half
+            except Exception:
+                pass
+        if offset_y:
+            y0 += offset_y
+            y1 += offset_y
+        date_box = (x0, y0, x1, y1)
+        _draw_centered_text(d, date_box, str(date_str), date_font, fill="black")
 
     # Rows
     rows = _build_rows(timetable)
@@ -152,36 +232,105 @@ def render_timetable_image(
     max_rows = 8 if "7time" in tpl_name else 7
     rows = rows[:max_rows]
 
-    # Define subject column boxes (right white cells only; left labels come from asset)
-    # Allow per-template overrides
-    if "7time" in tpl_name:
-        right_x0 = _env_int("SUBJECT_X0_7TIME", _env_int("SUBJECT_X0", 365))
-        right_x1 = _env_int("SUBJECT_X1_7TIME", _env_int("SUBJECT_X1", 990))
+    # Subject placement supports two modes:
+    # 1) Anchor mode: absolute (x,y) per first period + uniform DY spacing; optional separate anchor/dy after lunch
+    # 2) Box mode: legacy box-centered drawing using template-aligned boxes
+    is7 = "7time" in tpl_name
+
+    # Anchor mode parameters (per-template override → common)
+    subj_anchor = _env_xy("SUBJECT_ANCHOR_XY_7TIME" if is7 else "SUBJECT_ANCHOR_XY_6TIME") or _env_xy("SUBJECT_ANCHOR_XY")
+    subj_anchor_after = _env_xy("SUBJECT_ANCHOR_AFTER_LUNCH_XY_7TIME" if is7 else "SUBJECT_ANCHOR_AFTER_LUNCH_XY") or _env_xy("SUBJECT_ANCHOR_AFTER_LUNCH_XY")
+    subj_dy = _env_int("SUBJECT_ROW_DY_7TIME" if is7 else "SUBJECT_ROW_DY_6TIME", _env_int("SUBJECT_ROW_DY", 0))
+    subj_dy_after = _env_int("SUBJECT_ROW_DY_AFTER_LUNCH_7TIME" if is7 else "SUBJECT_ROW_DY_AFTER_LUNCH_6TIME", _env_int("SUBJECT_ROW_DY_AFTER_LUNCH", subj_dy or 0))
+    subj_anchor_mode = (os.getenv("SUBJECT_ANCHOR_MODE_7TIME" if is7 else "SUBJECT_ANCHOR_MODE", os.getenv("SUBJECT_ANCHOR_MODE", "topleft")) or "topleft").lower()
+    subj_align = (os.getenv("SUBJECT_ALIGN_7TIME" if is7 else "SUBJECT_ALIGN_6TIME", os.getenv("SUBJECT_ALIGN", "left")) or "left").lower()
+    subj_align_w = _env_int("SUBJECT_ALIGN_W_7TIME" if is7 else "SUBJECT_ALIGN_W_6TIME", _env_int("SUBJECT_ALIGN_W", 0))
+    subj_align_x1 = _env_int("SUBJECT_ALIGN_X1_7TIME" if is7 else "SUBJECT_ALIGN_X1_6TIME", _env_int("SUBJECT_ALIGN_X1", 0))
+
+    lunch_after = int(os.getenv("LUNCH_AFTER_PERIOD", "4") or 4)
+
+    if subj_anchor:
+        # Anchor-based absolute placement
+        period_idx = 0  # counts non-lunch periods (1-based when incremented)
+        after_lunch_flag = False
+        for r in rows:
+            label = r["label"]
+            subj = r["subject"] or "수업 시간표"
+            if len(subj) > 18:
+                subj = subj[:17] + "…"
+
+            if "점심" in label:
+                after_lunch_flag = True
+                continue
+
+            period_idx += 1
+
+            # Choose base and dy depending on lunch boundary
+            if after_lunch_flag and subj_anchor_after:
+                base_x, base_y = subj_anchor_after
+                base_idx = lunch_after + 1
+                dy_use = subj_dy_after or subj_dy or 0
+            else:
+                base_x, base_y = subj_anchor
+                base_idx = 1
+                dy_use = subj_dy or 0
+
+            px = base_x
+            py = base_y + dy_use * (period_idx - base_idx)
+
+            # Render at anchor
+            bbox = d.textbbox((0, 0), subj, font=subj_font)
+            tw = bbox[2] - bbox[0]
+            th = bbox[3] - bbox[1]
+            if subj_anchor_mode in ("center", "center_center"):
+                tx = px - tw // 2
+                ty = py - th // 2
+            elif subj_anchor_mode in ("center_top", "topcenter", "top_center"):
+                tx = px - tw // 2
+                ty = py
+            elif subj_anchor_mode in ("left_center", "center_left"):
+                tx = px
+                ty = py - th // 2
+            else:  # topleft
+                tx, ty = px, py
+
+            # Horizontal align within width from anchor if requested
+            if subj_align != "left":
+                width = subj_align_w if subj_align_w > 0 else (subj_align_x1 - px if subj_align_x1 > 0 else None)
+                if width and width > 0:
+                    if subj_align == "center":
+                        tx = px + (width - tw) // 2
+                    elif subj_align == "right":
+                        tx = px + (width - tw)
+
+            d.text((tx, ty), subj, fill="black", font=subj_font)
+
+            if (os.getenv("RENDER_DEBUG_BOXES", "false").lower() == "true"):
+                bbox = d.textbbox((tx, ty), subj, font=subj_font)
+                d.rectangle(bbox, outline="#0000ff", width=1)
     else:
-        right_x0 = _env_int("SUBJECT_X0_6TIME", _env_int("SUBJECT_X0", 365))
-        right_x1 = _env_int("SUBJECT_X1_6TIME", _env_int("SUBJECT_X1", 990))
+        # Box-centered legacy placement
+        if is7:
+            right_x0 = _env_int("SUBJECT_X0_7TIME", _env_int("SUBJECT_X0", 365))
+            right_x1 = _env_int("SUBJECT_X1_7TIME", _env_int("SUBJECT_X1", 990))
+            y_base = _env_int("SUBJECT_Y_BASE_7TIME", 360)
+            row_h = _env_int("SUBJECT_ROW_H_7TIME", 122)  # 8 rows including lunch
+        else:
+            right_x0 = _env_int("SUBJECT_X0_6TIME", _env_int("SUBJECT_X0", 365))
+            right_x1 = _env_int("SUBJECT_X1_6TIME", _env_int("SUBJECT_X1", 990))
+            y_base = _env_int("SUBJECT_Y_BASE_6TIME", 360)
+            row_h = _env_int("SUBJECT_ROW_H_6TIME", 130)  # 7 rows including lunch
 
-    # Vertical placement: tune base and gap to align with asset grid
-    if "7time" in tpl_name:
-        y_base = _env_int("SUBJECT_Y_BASE_7TIME", 360)
-        row_h = _env_int("SUBJECT_ROW_H_7TIME", 122)  # 8 rows including lunch
-    else:
-        y_base = _env_int("SUBJECT_Y_BASE_6TIME", 360)
-        row_h = _env_int("SUBJECT_ROW_H_6TIME", 130)  # 7 rows including lunch
+        for idx, r in enumerate(rows):
+            cy0 = y_base + idx * row_h
+            box_right = (right_x0, cy0 - 55, right_x1, cy0 + 55)
 
-    for idx, r in enumerate(rows):
-        cy0 = y_base + idx * row_h
-        box_right = (right_x0, cy0 - 55, right_x1, cy0 + 55)
-
-        label = r["label"]
-        subj = r["subject"] or "수업 시간표"
-        # Trim overly long subject
-        if len(subj) > 18:
-            subj = subj[:17] + "…"
-
-        # Draw only the subject in right cell; period labels are baked into the asset
-        if "점심" not in label:
-            _draw_centered_text(d, box_right, subj, subj_font, fill="black")
+            label = r["label"]
+            subj = r["subject"] or "수업 시간표"
+            if len(subj) > 18:
+                subj = subj[:17] + "…"
+            if "점심" not in label:
+                _draw_centered_text(d, box_right, subj, subj_font, fill="black")
 
     # Optional debug rectangles for calibration
     if (os.getenv("RENDER_DEBUG_BOXES", "false").lower() == "true"):

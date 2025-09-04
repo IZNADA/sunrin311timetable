@@ -38,7 +38,8 @@ def monday_of_week(d: dt.date) -> dt.date:
 
 def format_date_kr(d: dt.date) -> str:
     weekdays = "월화수목금토일"
-    return d.strftime(f"%Y-%m-%d ({weekdays[d.weekday()]})")
+    # e.g., 2025년09월03일 수요일
+    return f"{d.strftime('%Y년%m월%d일')} {weekdays[d.weekday()]}요일"
 
 
 def date_list(start: dt.date, days: int) -> List[dt.date]:
