@@ -336,8 +336,9 @@ def render_timetable_image(
     if (os.getenv("RENDER_DEBUG_BOXES", "false").lower() == "true"):
         # draw date box outline
         d.rectangle(date_box, outline="#ff0000", width=2)
-        # draw a sample subject box outline
-        d.rectangle((right_x0, y_base - 55, right_x1, y_base + 55), outline="#00aa00", width=2)
+        # draw a sample subject box outline (only if legacy box coords exist)
+        if all(k in locals() for k in ("right_x0", "right_x1", "y_base")):
+            d.rectangle((right_x0, y_base - 55, right_x1, y_base + 55), outline="#00aa00", width=2)
 
     os.makedirs(os.path.dirname(out_path) or ".", exist_ok=True)
     img.save(out_path, quality=95)
