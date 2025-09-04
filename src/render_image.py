@@ -52,6 +52,42 @@ def _pick_font(size, kind="regular"):
     return ImageFont.load_default()
 
 
+def _draw_centered_text(draw: ImageDraw.ImageDraw, box, text, font, fill="black"):
+    # box: (x0, y0, x1, y1)
+    x0, y0, x1, y1 = box
+    # Handle multiline
+    lines = str(text).split("\n")
+    line_heights = []
+    line_widths = []
+    total_h = 0
+    for ln in lines:
+        bbox = draw.textbbox((0, 0), ln, font=font)
+        w = bbox[2] - bbox[0]
+        h = bbox[3] - bbox[1]
+        line_widths.append(w)
+        line_heights.append(h)
+        total_h += h
+    # Add small line spacing
+    total_h += max(0, len(lines) - 1) * 6
+    cy = (y0 + y1) / 2 - total_h / 2
+    for i, ln in enumerate(lines):
+        w = line_widths[i]
+        h = line_heights[i]
+        cx = (x0 + x1) / 2 - w / 2
+        draw.text((cx, cy), ln, fill=fill, font=font)
+        cy += h + 6
+
+
+def _build_rows(timetable):
+    # Insert lunch after 4th period for visual layout
+    rows = []
+    for i, row in enumerate(timetable, start=1):
+        rows.append({"label": f"{i}교시", "subject": (row.get("subject") or "-").strip()})
+        if i == 4:
+            rows.append({"label": "점심\n시간", "subject": ""})
+    return rows
+
+
 def render_timetable_image(
     date_str,
     timetable,
@@ -62,40 +98,66 @@ def render_timetable_image(
     grade=None,
     class_nm=None,
 ):
-    W, H = 1080, 1350
-    img = Image.new("RGB", (W, H), "white")
+    # Choose template by period count (>=7 -> 7time)
+    period_count = sum(1 for r in timetable if (r.get("subject") or "").strip())
+    tpl_name = "assets/7time.png" if period_count >= 7 else "assets/6time.png"
+    try:
+        img = Image.open(tpl_name).convert("RGB")
+    except Exception:
+        # Fallback to plain white background
+        img = Image.new("RGB", (1080, 1350), "white")
     d = ImageDraw.Draw(img)
 
-    bold_font = _pick_font(72, kind="bold")
-    reg_font = _pick_font(44, kind="regular")
+    # Fonts
+    title_font = _pick_font(64, kind="bold")
+    date_font = _pick_font(40, kind="bold")
+    label_font = _pick_font(60, kind="bold")
+    subj_font = _pick_font(56, kind="regular")
 
-    d.rectangle((0, 0, W, 220), fill=brand_color)
-
-    # Title first line: e.g., "3학년 11반 시간표"
+    # Header texts
     if grade is not None and class_nm is not None:
         title_line = f"{grade}학년 {class_nm}반 시간표"
     else:
         title_line = "시간표"
-    d.text((60, 60), title_line, fill="white", font=bold_font)
 
-    # Second line: date on a new line
-    d.text((60, 140), f"{date_str}", fill="white", font=reg_font)
+    # Place header in two white ribbons (approximate boxes tuned for 1080x1350 asset)
+    title_box = (100, 85, 650, 185)
+    date_box = (650, 85, 1020, 185)
+    _draw_centered_text(d, title_box, title_line, title_font, fill="black")
+    _draw_centered_text(d, date_box, str(date_str), date_font, fill="black")
 
-    y = 260
-    line_gap = 90
-    side = 80
-    for i, row in enumerate(timetable, start=1):
-        subject = (row.get("subject") or "-").strip()
-        if len(subject) > 18:
-            subject = subject[:17] + "…"
-        text = f"{i}교시  {subject}"
-        d.text((side, y), text, fill="black", font=reg_font)
-        y += line_gap
-        d.line((side, y, W - side, y), fill="#eaeaea", width=3)
-        y += 20
+    # Rows
+    rows = _build_rows(timetable)
+    # Truncate/Pad depending on template type
+    max_rows = 8 if "7time" in tpl_name else 7
+    rows = rows[:max_rows]
+
+    # Define column boxes
+    left_x0, left_x1 = 95, 335
+    right_x0, right_x1 = 365, 990
+
+    # Vertical placement: tune base and gap to align with asset grid
+    if "7time" in tpl_name:
+        y_base, row_h = 360, 122  # 8 rows including lunch
+    else:
+        y_base, row_h = 360, 130  # 7 rows including lunch
+
+    for idx, r in enumerate(rows):
+        cy0 = y_base + idx * row_h
+        box_left = (left_x0, cy0 - 55, left_x1, cy0 + 55)
+        box_right = (right_x0, cy0 - 55, right_x1, cy0 + 55)
+
+        label = r["label"]
+        subj = r["subject"] or "수업 시간표"
+        # Trim overly long subject
+        if len(subj) > 18:
+            subj = subj[:17] + "…"
+
+        _draw_centered_text(d, box_left, label, label_font, fill="black")
+        if "점심" not in label:
+            _draw_centered_text(d, box_right, subj, subj_font, fill="black")
 
     os.makedirs(os.path.dirname(out_path) or ".", exist_ok=True)
     img.save(out_path, quality=95)
-    log.info("Saved image: %s", out_path)
+    log.info("Saved image: %s (template=%s)", out_path, tpl_name)
     return out_path
-
