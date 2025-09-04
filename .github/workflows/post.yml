@@ -49,21 +49,24 @@ jobs:
           print('Preflight OK')
           PY
       - name: Restore state cache (token/hash)
+        id: state_cache
         uses: actions/cache/restore@v4
         with:
           path: state
-          key: state-${{ github.ref_name }}-${{ github.run_id }}
+          # Primary key is unique per attempt to avoid collisions
+          key: state-${{ github.ref_name }}-${{ github.run_id }}-${{ github.run_attempt }}
           restore-keys: |
             state-${{ github.ref_name }}-
             state-
       - name: Run once (generate + post)
         run: python -m src.daemon --run-now
       - name: Save state cache
-        if: always()
+        if: always() && steps.state_cache.outputs.cache-hit != 'true'
+        continue-on-error: true
         uses: actions/cache/save@v4
         with:
           path: state
-          key: state-${{ github.ref_name }}-${{ github.run_id }}
+          key: state-${{ github.ref_name }}-${{ github.run_id }}-${{ github.run_attempt }}
       - name: Upload image artifact
         if: always()
         uses: actions/upload-artifact@v4
