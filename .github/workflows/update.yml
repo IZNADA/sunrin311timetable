@@ -2,8 +2,10 @@ name: Update Timetable (Weekdays 07:00–12:00 KST)
 
 on:
   schedule:
-    - cron: '0,30 22-23 * * MON-FRI'
-    - cron: '0,30 0-3 * * MON-FRI'
+    # Exactly 07:00–12:00 KST on weekdays (UTC is -9h)
+    - cron: '0,30 22-23 * * MON-FRI'  # 07:00–08:30 KST
+    - cron: '0,30 0-2 * * MON-FRI'    # 09:00–11:30 KST
+    - cron: '0 3 * * MON-FRI'         # 12:00 KST
   workflow_dispatch:
     inputs:
       test_mode:
