@@ -1,0 +1,96 @@
+name: Generate Timetable Images
+
+on:
+  workflow_dispatch:
+    inputs:
+      start_date:
+        description: 'Start date (YYYYMMDD)'
+        required: true
+        type: string
+      days:
+        description: 'Number of days'
+        required: true
+        default: '1'
+        type: number
+      include_weekend:
+        description: 'Generate 7 days from Monday'
+        required: false
+        default: 'false'
+        type: boolean
+      render_debug_boxes:
+        description: 'Draw debug boxes for layout calibration'
+        required: false
+        default: 'false'
+        type: boolean
+
+permissions:
+  contents: read
+
+jobs:
+  generate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Cache pip
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/pip
+          key: ${{ runner.os }}-pip-${{ hashFiles('**/requirements.txt') }}
+          restore-keys: |
+            ${{ runner.os }}-pip-
+
+      - name: Install deps
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Generate images
+        env:
+          NEIS_KEY: ${{ secrets.NEIS_KEY }}
+
+          # App config
+          TIMEZONE: Asia/Seoul
+          SCHOOL_NAME: ${{ vars.SCHOOL_NAME || '선린인터넷고등학교' }}
+          SCHOOL_LEVEL: ${{ vars.SCHOOL_LEVEL || 'his' }}
+          GRADE: ${{ vars.GRADE || '3' }}
+          CLASS_NM: ${{ vars.CLASS_NM || '11' }}
+          BRAND_COLOR_HEX: ${{ vars.BRAND_COLOR_HEX || '#2A6CF0' }}
+
+          # Placement tuning (optional)
+          DATE_ANCHOR_XY: ${{ vars.DATE_ANCHOR_XY }}
+          DATE_ANCHOR_MODE: ${{ vars.DATE_ANCHOR_MODE }}
+          DATE_ALIGN: ${{ vars.DATE_ALIGN }}
+          DATE_ALIGN_X1: ${{ vars.DATE_ALIGN_X1 }}
+          SUBJECT_ANCHOR_XY: ${{ vars.SUBJECT_ANCHOR_XY }}
+          SUBJECT_ANCHOR_MODE: ${{ vars.SUBJECT_ANCHOR_MODE }}
+          SUBJECT_ROW_DY: ${{ vars.SUBJECT_ROW_DY }}
+          SUBJECT_ALIGN: ${{ vars.SUBJECT_ALIGN }}
+          SUBJECT_ALIGN_X1: ${{ vars.SUBJECT_ALIGN_X1 }}
+          SUBJECT_ANCHOR_AFTER_LUNCH_XY: ${{ vars.SUBJECT_ANCHOR_AFTER_LUNCH_XY }}
+          SUBJECT_ANCHOR_AFTER_LUNCH_XY_7TIME: ${{ vars.SUBJECT_ANCHOR_AFTER_LUNCH_XY_7TIME }}
+          SUBJECT_ROW_DY_AFTER_LUNCH: ${{ vars.SUBJECT_ROW_DY_AFTER_LUNCH }}
+
+          # Optional debug
+          RENDER_DEBUG_BOXES: ${{ inputs.render_debug_boxes }}
+
+        run: |
+          if [ "${{ inputs.include_weekend }}" = 'true' ]; then
+            python scripts/generate_week.py --start "${{ inputs.start_date }}" --days "${{ inputs.days }}" --include-weekend
+          else
+            python scripts/generate_week.py --start "${{ inputs.start_date }}" --days "${{ inputs.days }}"
+          fi
+
+      - name: Upload images
+        uses: actions/upload-artifact@v4
+        with:
+          name: timetable-images-${{ inputs.start_date }}
+          path: out/*.jpg
+          if-no-files-found: error
+
