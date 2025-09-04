@@ -83,9 +83,30 @@ def _build_rows(timetable):
     rows = []
     for i, row in enumerate(timetable, start=1):
         rows.append({"label": f"{i}교시", "subject": (row.get("subject") or "-").strip()})
-        if i == 4:
+        # Allow override: LUNCH_AFTER_PERIOD env (default 4)
+        lunch_after = int(os.getenv("LUNCH_AFTER_PERIOD", "4") or 4)
+        if i == lunch_after:
             rows.append({"label": "점심\n시간", "subject": ""})
     return rows
+
+
+def _env_box(key: str, default):
+    s = os.getenv(key)
+    if s:
+        try:
+            x0, y0, x1, y1 = map(int, s.split(","))
+            return (x0, y0, x1, y1)
+        except Exception:
+            pass
+    return default
+
+
+def _env_int(key: str, default: int) -> int:
+    try:
+        v = os.getenv(key)
+        return int(v) if v not in (None, "") else default
+    except Exception:
+        return default
 
 
 def render_timetable_image(
@@ -114,8 +135,15 @@ def render_timetable_image(
     label_font = _pick_font(60, kind="bold")
     subj_font = _pick_font(56, kind="regular")
 
-    # Header text: show only date on the right ribbon; left ribbon stays empty (asset provides grade/class visuals if needed)
-    date_box = (650, 85, 1020, 185)
+    # Header text: show only date on the right ribbon.
+    # Defaults tuned for 1080x1350 template; can be overridden via env:
+    #  - DATE_BOX_6TIME / DATE_BOX_7TIME = "x0,y0,x1,y1"
+    default_date_box = (640, 88, 1015, 188)
+    date_box = default_date_box
+    if "7time" in tpl_name:
+        date_box = _env_box("DATE_BOX_7TIME", default_date_box)
+    else:
+        date_box = _env_box("DATE_BOX_6TIME", default_date_box)
     _draw_centered_text(d, date_box, str(date_str), date_font, fill="black")
 
     # Rows
@@ -125,13 +153,21 @@ def render_timetable_image(
     rows = rows[:max_rows]
 
     # Define subject column boxes (right white cells only; left labels come from asset)
-    right_x0, right_x1 = 365, 990
+    # Allow per-template overrides
+    if "7time" in tpl_name:
+        right_x0 = _env_int("SUBJECT_X0_7TIME", _env_int("SUBJECT_X0", 365))
+        right_x1 = _env_int("SUBJECT_X1_7TIME", _env_int("SUBJECT_X1", 990))
+    else:
+        right_x0 = _env_int("SUBJECT_X0_6TIME", _env_int("SUBJECT_X0", 365))
+        right_x1 = _env_int("SUBJECT_X1_6TIME", _env_int("SUBJECT_X1", 990))
 
     # Vertical placement: tune base and gap to align with asset grid
     if "7time" in tpl_name:
-        y_base, row_h = 360, 122  # 8 rows including lunch
+        y_base = _env_int("SUBJECT_Y_BASE_7TIME", 360)
+        row_h = _env_int("SUBJECT_ROW_H_7TIME", 122)  # 8 rows including lunch
     else:
-        y_base, row_h = 360, 130  # 7 rows including lunch
+        y_base = _env_int("SUBJECT_Y_BASE_6TIME", 360)
+        row_h = _env_int("SUBJECT_ROW_H_6TIME", 130)  # 7 rows including lunch
 
     for idx, r in enumerate(rows):
         cy0 = y_base + idx * row_h
@@ -146,6 +182,13 @@ def render_timetable_image(
         # Draw only the subject in right cell; period labels are baked into the asset
         if "점심" not in label:
             _draw_centered_text(d, box_right, subj, subj_font, fill="black")
+
+    # Optional debug rectangles for calibration
+    if (os.getenv("RENDER_DEBUG_BOXES", "false").lower() == "true"):
+        # draw date box outline
+        d.rectangle(date_box, outline="#ff0000", width=2)
+        # draw a sample subject box outline
+        d.rectangle((right_x0, y_base - 55, right_x1, y_base + 55), outline="#00aa00", width=2)
 
     os.makedirs(os.path.dirname(out_path) or ".", exist_ok=True)
     img.save(out_path, quality=95)
