@@ -114,16 +114,8 @@ def render_timetable_image(
     label_font = _pick_font(60, kind="bold")
     subj_font = _pick_font(56, kind="regular")
 
-    # Header texts
-    if grade is not None and class_nm is not None:
-        title_line = f"{grade}학년 {class_nm}반 시간표"
-    else:
-        title_line = "시간표"
-
-    # Place header in two white ribbons (approximate boxes tuned for 1080x1350 asset)
-    title_box = (100, 85, 650, 185)
+    # Header text: show only date on the right ribbon; left ribbon stays empty (asset provides grade/class visuals if needed)
     date_box = (650, 85, 1020, 185)
-    _draw_centered_text(d, title_box, title_line, title_font, fill="black")
     _draw_centered_text(d, date_box, str(date_str), date_font, fill="black")
 
     # Rows
@@ -132,8 +124,7 @@ def render_timetable_image(
     max_rows = 8 if "7time" in tpl_name else 7
     rows = rows[:max_rows]
 
-    # Define column boxes
-    left_x0, left_x1 = 95, 335
+    # Define subject column boxes (right white cells only; left labels come from asset)
     right_x0, right_x1 = 365, 990
 
     # Vertical placement: tune base and gap to align with asset grid
@@ -144,7 +135,6 @@ def render_timetable_image(
 
     for idx, r in enumerate(rows):
         cy0 = y_base + idx * row_h
-        box_left = (left_x0, cy0 - 55, left_x1, cy0 + 55)
         box_right = (right_x0, cy0 - 55, right_x1, cy0 + 55)
 
         label = r["label"]
@@ -153,7 +143,7 @@ def render_timetable_image(
         if len(subj) > 18:
             subj = subj[:17] + "…"
 
-        _draw_centered_text(d, box_left, label, label_font, fill="black")
+        # Draw only the subject in right cell; period labels are baked into the asset
         if "점심" not in label:
             _draw_centered_text(d, box_right, subj, subj_font, fill="black")
 
