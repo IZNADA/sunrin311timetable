@@ -65,12 +65,55 @@ jobs:
             state-
       - name: Run once (generate + post)
         run: python -m src.daemon --run-now
+      - name: Job summary (today status)
+        run: |
+          python - << 'PY'
+          import os, json, glob, datetime
+          try:
+            from zoneinfo import ZoneInfo
+            tz = ZoneInfo("Asia/Seoul")
+          except Exception:
+            tz = None
+          now = datetime.datetime.now(tz) if tz else datetime.datetime.utcnow()
+          ymd = now.strftime("%Y%m%d")
+          status = "SKIPPED"
+          post_id = ""
+          st_path = "state/posted.json"
+          if os.path.exists(st_path):
+            try:
+              with open(st_path, 'r', encoding='utf-8') as f:
+                st = json.load(f)
+              v = st.get(ymd)
+              if isinstance(v, dict):
+                post_id = str(v.get('post_id') or '')
+                status = "POSTED" if post_id else status
+            except Exception:
+              pass
+          img = next(iter(sorted(glob.glob(f"out/{ymd}.jpg"))), "")
+          lines = [
+            f"# Timetable Post ({ymd})",
+            f"- Status: {status}",
+          ]
+          if post_id:
+            lines.append(f"- Post ID: `{post_id}`")
+          if img:
+            lines.append(f"- Image: `{os.path.basename(img)}`")
+          with open(os.environ['GITHUB_STEP_SUMMARY'], 'a', encoding='utf-8') as f:
+            f.write("\n".join(lines) + "\n")
+          PY
       - name: Save state cache
         if: always()
         uses: actions/cache/save@v4
         with:
           path: state
           key: state-${{ github.ref_name }}-${{ github.run_id }}
+      - name: Upload state artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: state
+          path: state/posted.json
+          if-no-files-found: warn
       - name: Upload image artifact
         if: always()
         uses: actions/upload-artifact@v4
