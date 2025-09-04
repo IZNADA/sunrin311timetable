@@ -77,11 +77,16 @@ def daily_job():
             log.info("No change detected for %s. Skipping post.", ymd)
             return
 
-        try:
-            image_url = get_public_image_url(img_path)
-        except Exception as e:
-            log.warning("Image URL unavailable: %s", e)
+        # In test mode, do not attempt network uploads for image URL.
+        post_test_mode = os.getenv("POST_TEST_MODE", "true").lower() == "true"
+        if post_test_mode:
             image_url = "https://example.com/placeholder.jpg"
+        else:
+            try:
+                image_url = get_public_image_url(img_path)
+            except Exception as e:
+                log.warning("Image URL unavailable: %s", e)
+                image_url = "https://example.com/placeholder.jpg"
 
         post_id = upload_image_via_url(image_url, caption)
         record_post(ymd, str(post_id), current_h)
