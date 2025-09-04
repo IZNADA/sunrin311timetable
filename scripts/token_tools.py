@@ -8,8 +8,7 @@ from typing import Any, Dict
 import requests
 from dotenv import load_dotenv
 
-# Align with project-wide Graph version
-GRAPH = "https://graph.facebook.com/v23.0"
+GRAPH = "https://graph.facebook.com/v21.0"
 
 
 def jprint(obj: Dict[str, Any]):
@@ -129,3 +128,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+
