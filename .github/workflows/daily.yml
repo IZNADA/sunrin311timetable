@@ -17,10 +17,22 @@ permissions:
 
 jobs:
   run-daily:
+    concurrency:
+      group: insta-timetable-${{ github.ref_name }}
+      cancel-in-progress: false
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+      - name: Restore state cache (token/hash)
+        id: state_cache
+        uses: actions/cache/restore@v4
+        with:
+          path: state
+          key: state-${{ github.ref_name }}-${{ github.run_id }}-${{ github.run_attempt }}
+          restore-keys: |
+            state-${{ github.ref_name }}-
+            state-
       - name: Check weekday (KST)
         id: weekday
         run: |
@@ -92,6 +104,15 @@ jobs:
         run: |
           python -m src.daemon --run-now
         if: ${{ steps.weekday.outputs.skip != 'true' }}
+
+      - name: Save state cache
+        # Save after running; ensures update workflow can restore today's hash
+        if: ${{ always() && steps.weekday.outputs.skip != 'true' && steps.state_cache.outputs.cache-hit != 'true' }}
+        continue-on-error: true
+        uses: actions/cache/save@v4
+        with:
+          path: state
+          key: state-${{ github.ref_name }}-${{ github.run_id }}-${{ github.run_attempt }}
 
       - name: Upload image artifact
         uses: actions/upload-artifact@v4

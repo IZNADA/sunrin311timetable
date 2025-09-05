@@ -19,8 +19,8 @@ permissions:
   contents: read
 
 concurrency:
-  group: update-timetable-${{ github.ref }}
-  cancel-in-progress: true
+  group: insta-timetable-${{ github.ref_name }}
+  cancel-in-progress: false
 
 jobs:
   update:
