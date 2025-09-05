@@ -1,4 +1,4 @@
-name: Update Timetable (Weekdays 07:00–12:00 KST)
+name: Update Timetable (Weekdays 07:30–12:00 KST)
 
 on:
   schedule:
