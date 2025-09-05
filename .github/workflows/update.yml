@@ -143,19 +143,19 @@ jobs:
         if: ${{ steps.weekday.outputs.skip != 'true' }}
 
       - name: Save state cache
-        if: always() && steps.state_cache.outputs.cache-hit != 'true'
+        # Run even if earlier step failed, but only on weekdays and when no cache hit
+        if: ${{ always() && steps.weekday.outputs.skip != 'true' && steps.state_cache.outputs.cache-hit != 'true' }}
         continue-on-error: true
         uses: actions/cache/save@v4
         with:
           path: state
           key: state-${{ github.ref_name }}-${{ github.run_id }}-${{ github.run_attempt }}
-        if: ${{ steps.weekday.outputs.skip != 'true' }}
 
       - name: Upload image artifact
-        if: always()
+        # Upload regardless of prior failures, but only on weekdays
+        if: ${{ always() && steps.weekday.outputs.skip != 'true' }}
         uses: actions/upload-artifact@v4
         with:
           name: timetable-image
           path: out/*.jpg
           if-no-files-found: warn
-        if: ${{ steps.weekday.outputs.skip != 'true' }}
