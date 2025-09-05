@@ -1,5 +1,5 @@
 # sunrin311timetable
-
+[![Daily Timetable](https://github.com/IZNADA/sunrin311timetable/actions/workflows/daily.yml/badge.svg)](https://github.com/IZNADA/sunrin311timetable/actions/workflows/daily.yml)
 선린 25학년도 3-11 학급의 시간표를 매일 7시마다 인스타그램에 자동 업로드하는 프로젝트.
 
 ※ 레거시(`src_legacy/`)는 제거되었습니다. 실행은 `src/daemon.py` 기준입니다.
